@@ -1651,6 +1651,8 @@ export type Doc = {
   frame: FrameMode;
   /** the implementation target the prompt names; Android unless the author picks the web */
   platform?: Platform;
+  /** the application profile the design is written for; unset means the base profile */
+  profileId?: string;
   title: string;
   brief: string;
   /** the prompt as the author rewrote it by hand; undefined means the generated one */
