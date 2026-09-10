@@ -16,8 +16,8 @@ This repository is a fork of [lnkiai/m3e-canvas](https://github.com/lnkiai/m3e-c
 | `Doc` | one optional field, `profileId` |
 | — | `lib/profiles/` and `components/ProfileMenu.tsx` |
 
-No backend, no MCP, no code generation, no data belonging to any organisation. The second profile
-that ships is fictional.
+No backend, no MCP, no code generation. Three profiles ship: the identity, a fictional example, and
+one derived from a public open-source project (see *Attribution*).
 
 ## Motivation
 
@@ -53,7 +53,7 @@ flowchart TD
 | --- | --- |
 | `lib/profiles/types.ts` | the `AppProfile` contract; declarations only |
 | `lib/profiles/index.ts` | the registry and the four resolvers |
-| `lib/profiles/base.ts` · `demo.ts` | `BASE` (identity) and `DEMO` (fictional example) |
+| `lib/profiles/base.ts` · `demo.ts` · `nia.ts` | `BASE` (identity), `DEMO` (fictional), `NIA` (real-world) |
 | `components/ProfileMenu.tsx` | the left-rail picker |
 | `app/page.tsx` | holds `profileId`, resolves once per render |
 | `lib/prompt.ts` | one import, one appended loop |
@@ -127,6 +127,33 @@ naming `base`, and one naming a profile this build does not carry all produce by
 prompts. `buildPrompt()` is also embedded in the AI helper's context (`lib/ai.ts`), so profile
 guidance reaches the AI helper too; that is intended.
 
+## The real-world profile, and what it cost
+
+`NIA` maps [Now in Android](https://github.com/android/nowinandroid) (Apache-2.0) onto this
+contract. It is worth reading as the honest measure of what the contract can and cannot hold.
+
+| That project defines | Here |
+| --- | --- |
+| 19 light color roles, set by hand | mapped exactly |
+| 6 further roles this `Palette` needs, which it never sets | **derived** from its `primary` as a seed by `schemeFromSeed`, at module load |
+| 7 roles it sets that this `Palette` has no slot for (`tertiary`, `onSecondary`, `background`, `surfaceVariant`, …) | dropped |
+| an authored dark scheme | **not represented** — dark is generated from the seed |
+| a second colour scheme (a green "Android" variant) | not represented |
+| a 15-style type scale | only the font family is representable; the weights go into `context` |
+| `GradientColors`, `BackgroundTheme.tonalElevation`, `TintTheme` | `context` lines, not structured data |
+
+The derivation matters: that project leaves those six roles to Compose's defaults, which come from
+an unrelated baseline palette. Deriving them from its own `primary` keeps them inside its tonal
+family and, unlike a hardcoded value, says plainly that they are generated rather than authored.
+`nia.test.ts` asserts that every role in the resolved palette is either authored or derived, and
+that the two sets together account for all of them.
+
+### Attribution
+
+`lib/profiles/nia.ts` carries the upstream copyright, licence and the exact commit its values were
+read from. The repository's `NOTICE` records it alongside the project's other Apache-2.0 material.
+Any further profile derived from someone else's work should do the same.
+
 ## Adding a profile
 
 1. Create `lib/profiles/<name>.ts`, setting only what the profile fixes:
@@ -159,7 +186,9 @@ resolvers, `app/page.tsx`, `lib/prompt.ts` or `components/ProfileMenu.tsx`.
 
 Breaking one of these is how the abstraction turns into a pile of special cases.
 
-1. **A profile is data** — no functions, no side effects, no imports beyond types.
+1. **A profile is data** — the object carries no behaviour for a resolver to invoke, and no side
+   effects. A profile file may compute its own literals at module load (`nia.ts` derives part of its
+   palette with `schemeFromSeed`); what it may not do is hand the resolvers a function to call.
 2. **No resolver names a profile.** `index.test.ts` pins this by resolving one not in the registry.
 3. **Resolution is pure and one-way.** Profile then `BASE` again returns the author exactly where they were.
 4. **`BASE` is the identity** — visually, and byte-for-byte in the prompt.
@@ -179,11 +208,17 @@ plus `profileId` cases in `lib/project.test.ts`.
 - **Profiles cannot change the component vocabulary.** `Kind`, `KIND_SPEC` and the renderer are Material 3 throughout; a profile changes theme, palette and prompt guidance only.
 - **`resolveScheme()` mirrors `paletteOf()`'s tail** and can drift from it. The base-equivalence tests over every preset and theme are what catch that.
 - **The prompt tests are equivalence tests**, so they cannot see a line added identically to both sides. The shape of the prompt's ending is pinned separately to cover that gap.
+- **A profile can only supply a complete `Palette`, so missing roles must be derived.** A real design system rarely specifies all 25 roles this `Palette` needs; the rest are generated from its seed and are not that system's values. `nia.ts` documents which are which.
+- **An authored dark scheme cannot be represented.** `palette` holds one light scheme and `resolveScheme` regenerates dark from its seed, so a design system's own dark colors are lost.
+- **Typography is only partially representable.** `theme.font` carries a family and nothing else: no sizes, line heights, letter spacing or per-style weights.
+- **Semantic tokens are prompt context, not structured data.** Gradients, tonal elevation, icon tints and anything else outside `Theme` and `Palette` can only be described in `context` lines, so the canvas cannot render them — only the generated prompt mentions them.
 
 ## Future exploration
 
 Ideas only; none of this is implemented.
 
+- A partial palette overlay, so a profile can state only the roles its design system actually specifies and let the rest derive explicitly, instead of spreading a generated scheme by hand.
+- A second authored palette for dark, so a design system's own dark colors survive.
 - Reconcile the color panel with an overriding profile — show its scheme read-only, or offer to adopt it as the authored one.
 - Surface in the prompt panel that an edited prompt is hiding profile guidance.
 - A per-profile component vocabulary, so a profile offers the parts its design system has and hides the ones it does not. By far the largest step; would touch `Kind`, `KIND_SPEC` and the renderer.

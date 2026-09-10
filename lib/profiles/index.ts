@@ -3,16 +3,18 @@ import { LANGS, type Lang } from "../i18n";
 import { normalizeTheme, paletteOf, type Palette, type Theme } from "../tokens";
 import { BASE } from "./base";
 import { DEMO } from "./demo";
+import { NIA } from "./nia";
 import type { AppProfile, ProfilePalette } from "./types";
 
 export type { AppProfile, ProfileContext, ProfilePalette } from "./types";
 export { BASE } from "./base";
 export { DEMO } from "./demo";
+export { NIA } from "./nia";
 
 /** Every profile the editor knows. Registering one is a data change: none of
  *  the resolvers below branch on a profile's identity, so this array is the
  *  only place a new profile has to appear. */
-export const PROFILES: readonly AppProfile[] = [BASE, DEMO];
+export const PROFILES: readonly AppProfile[] = [BASE, DEMO, NIA];
 
 /** the profile used when a document names none, or names one that is gone */
 export const DEFAULT_PROFILE_ID = BASE.id;

@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from "vitest";
 
 import { LANGS, setGlobalLang, type Lang } from "./i18n";
-import { BASE, DEMO, contextLines, paletteFor, themeFor } from "./profiles";
+import { BASE, DEMO, NIA, contextLines, paletteFor, themeFor } from "./profiles";
 import { buildPrompt } from "./prompt";
 import { BACK_TARGET, defaultTabs, makeItem, type Doc, type Item } from "./tokens";
 
@@ -86,7 +86,7 @@ describe("profile context in the prompt", () => {
   /* The brief has to describe the design the canvas shows. Before this, it
      described the authored theme and palette while the canvas drew the
      profile's, so the two contradicted each other. */
-  it.each([DEMO])("describes $id's own palette rather than the authored one", (profile) => {
+  it.each([DEMO, NIA])("describes $id's own palette rather than the authored one", (profile) => {
     const doc = fixture(profile.id);
     const resolved = paletteFor(profile, { paletteKey: doc.paletteKey }, themeFor(profile, doc.theme));
     const authored = paletteFor(BASE, { paletteKey: doc.paletteKey }, themeFor(BASE, doc.theme));
@@ -94,6 +94,21 @@ describe("profile context in the prompt", () => {
     expect(prompt).toContain(resolved.primary);
     expect(resolved.primary).not.toBe(authored.primary); // the fixture would prove nothing otherwise
     expect(prompt).not.toContain(authored.primary);
+  });
+
+  it("names the roles a real-world profile authors, exactly as that project sets them", () => {
+    expect(build("en", NIA.id)).toContain("#8B418F");
+  });
+
+  it("follows a profile's light / dark axis, writing both schemes out", () => {
+    /* NIA fixes bothModes; the fixture's authored theme leaves it off */
+    const doc = fixture(NIA.id);
+    expect(themeFor(BASE, doc.theme).bothModes).toBe(false);
+    const prompt = build("en", NIA.id);
+    const th = themeFor(NIA, doc.theme);
+    const scheme = { paletteKey: doc.paletteKey };
+    expect(prompt).toContain(paletteFor(NIA, scheme, { ...th, dark: false }).surface);
+    expect(prompt).toContain(paletteFor(NIA, scheme, { ...th, dark: true }).surface);
   });
 
   it.each(langs)("introduces no section of its own, in %s", (lang) => {

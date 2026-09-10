@@ -79,6 +79,7 @@ generated prompt gains the profile's guidance as extra bullets under its closing
 | --- | --- |
 | **Material 3 Expressive** (`base`) | The default. Configures nothing, so the editor behaves exactly as upstream. |
 | **Demo Design System** (`demo`) | A fictional example: its own seed color, square corners, emphasized type and the expressive motion scheme, plus two lines of prompt guidance. |
+| **Now in Android** (`nia`) | Derived from [Now in Android](https://github.com/android/nowinandroid) (Apache-2.0): its default light color scheme, plus prompt guidance for the type weights and background treatment its design system specifies. |
 
 Profiles resolve *over* what you authored rather than replacing it. Switching to a profile never edits your
 theme or palette, and switching back to `base` gives them back untouched. A profile is data: adding one means
