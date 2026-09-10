@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from "vitest";
 
 import { LANGS, setGlobalLang, type Lang } from "./i18n";
-import { BASE, DEMO, contextLines } from "./profiles";
+import { BASE, DEMO, contextLines, paletteFor, themeFor } from "./profiles";
 import { buildPrompt } from "./prompt";
 import { BACK_TARGET, defaultTabs, makeItem, type Doc, type Item } from "./tokens";
 
@@ -39,6 +39,9 @@ const build = (lang: Lang, profileId?: string) => {
 };
 
 const headings = (prompt: string) => prompt.split("\n").filter((l) => l.startsWith("## "));
+/* A profile changes the color and theme sections too, so its guidance is found
+   at the end of the prompt rather than by measuring against the plain one. */
+const bullets = (lines: readonly string[]) => lines.map((line) => `- ${line}`).join("\n");
 
 describe("profile context in the prompt", () => {
   afterEach(() => setGlobalLang("ja")); // restore the module default
@@ -67,22 +70,30 @@ describe("profile context in the prompt", () => {
     expect(ls[ls.length - 1]).toMatch(/^- /);
   });
 
-  it("writes a profile's guidance as bullets at the end of the prompt", () => {
-    const prompt = build("en", DEMO.id);
-    const plain = build("en");
-    expect(prompt.startsWith(plain)).toBe(true);
-    expect(prompt.slice(plain.length)).toBe(DEMO.context!.en!.map((line) => `\n- ${line}`).join(""));
+  it("writes a profile's guidance as the last lines of the prompt", () => {
+    expect(build("en", DEMO.id).endsWith(`\n${bullets(DEMO.context!.en!)}`)).toBe(true);
   });
 
   it.each(langs)("writes the guidance in the language it has, falling back to English, in %s", (lang) => {
-    const added = build(lang, DEMO.id).slice(build(lang).length);
-    for (const line of contextLines(DEMO, lang)) expect(added).toContain(`- ${line}`);
+    expect(build(lang, DEMO.id).endsWith(`\n${bullets(contextLines(DEMO, lang))}`)).toBe(true);
   });
 
   it.each(["ja", "zh", "ko"] as Lang[])("uses the English guidance where the profile has no %s", (lang) => {
     const expected = DEMO.context?.[lang] ?? DEMO.context!.en!;
-    const added = build(lang, DEMO.id).slice(build(lang).length);
-    for (const line of expected) expect(added).toContain(`- ${line}`);
+    expect(build(lang, DEMO.id).endsWith(`\n${bullets(expected)}`)).toBe(true);
+  });
+
+  /* The brief has to describe the design the canvas shows. Before this, it
+     described the authored theme and palette while the canvas drew the
+     profile's, so the two contradicted each other. */
+  it.each([DEMO])("describes $id's own palette rather than the authored one", (profile) => {
+    const doc = fixture(profile.id);
+    const resolved = paletteFor(profile, { paletteKey: doc.paletteKey }, themeFor(profile, doc.theme));
+    const authored = paletteFor(BASE, { paletteKey: doc.paletteKey }, themeFor(BASE, doc.theme));
+    const prompt = build("en", profile.id);
+    expect(prompt).toContain(resolved.primary);
+    expect(resolved.primary).not.toBe(authored.primary); // the fixture would prove nothing otherwise
+    expect(prompt).not.toContain(authored.primary);
   });
 
   it.each(langs)("introduces no section of its own, in %s", (lang) => {
