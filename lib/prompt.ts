@@ -1,4 +1,5 @@
 import { KIND_TEXT, Lang, SWIPE_TEXT, TRANSITION_TEXT, getLang } from "./i18n";
+import { contextLines, paletteFor, profileOf, provenanceLines, themeFor } from "./profiles";
 import { constrainModalRails } from "./rail";
 import {
   CONTENT_W,
@@ -27,8 +28,6 @@ import {
   groupBounds,
   isPhoneFrame,
   isWideRail,
-  normalizeTheme,
-  paletteOf,
   railWidth,
   progressThickness,
   isScrollableTabs,
@@ -1410,8 +1409,14 @@ const PH = {
 
 export function buildPrompt(doc: Doc, widths: Record<string, number>, onlyFrameId?: string, lang: Lang = getLang()): string {
   doc = { ...doc, groups: constrainModalRails(doc.groups) };
-  const th = normalizeTheme(doc.theme);
-  const pal = paletteOf(doc.paletteKey, doc.customPalette, th);
+  /* The brief must describe what the canvas draws, so the theme and palette are
+   * resolved through the chosen profile exactly as app/page.tsx resolves them.
+   * The authored fields are read, never written. The base profile configures
+   * nothing, so it resolves to the authored pair and the prompt is unchanged. */
+  const profile = profileOf(doc.profileId);
+  const scheme = { paletteKey: doc.paletteKey, customPalette: doc.customPalette };
+  const th = themeFor(profile, doc.theme);
+  const pal = paletteFor(profile, scheme, th);
   const phone = doc.frame === "phone";
   const platform: Platform = doc.platform ?? defaultPlatformOf(doc.frames, doc.frame);
   const allFrames = phone ? doc.frames : [];
@@ -1463,8 +1468,8 @@ export function buildPrompt(doc: Doc, widths: Record<string, number>, onlyFrameI
   if (doc.dynamicColor) lines.push(ph.dynamic(platform));
   lines.push(ph.colorIntro(pal.label, !!doc.dynamicColor, th));
   if (th.bothModes) {
-    const light = paletteOf(doc.paletteKey, doc.customPalette, { ...th, dark: false });
-    const dark = paletteOf(doc.paletteKey, doc.customPalette, { ...th, dark: true });
+    const light = paletteFor(profile, scheme, { ...th, dark: false });
+    const dark = paletteFor(profile, scheme, { ...th, dark: true });
     lines.push(ph.schemeHead(false));
     lines.push(...paletteLines(light));
     lines.push(ph.schemeHead(true));
@@ -1518,6 +1523,11 @@ export function buildPrompt(doc: Doc, widths: Record<string, number>, onlyFrameI
   lines.push("");
   lines.push(ph.hGeneral);
   for (const s of GENERAL[lang]) lines.push(`- ${typeof s === "function" ? s(platform) : s}`);
+  /* Whatever the chosen profile adds, as further guidance rather than a section
+   * of its own. A profile with nothing to say adds no line at all, so the base
+   * profile leaves the prompt exactly as it was. */
+  for (const s of provenanceLines(profile, th, lang)) lines.push(`- ${s}`);
+  for (const s of contextLines(profile, lang)) lines.push(`- ${s}`);
   return lines.join("\n");
 }
 

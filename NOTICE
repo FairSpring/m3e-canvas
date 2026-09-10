@@ -15,3 +15,12 @@ Copyright 2026 Alerix).
 This product contains SVG shape path data from Material Design assets:
   Copyright (C) 2024 Google LLC
   https://m3.material.io/components/loading-indicator
+
+This product contains color values read from Now in Android
+(Apache License 2.0):
+  Copyright 2022 The Android Open Source Project
+  https://github.com/android/nowinandroid
+
+  core/designsystem/.../theme/Color.kt, Theme.kt -> lib/profiles/nia.ts
+  (the nineteen roles of LightDefaultColorScheme that project sets by hand;
+  the remaining palette roles in that file are generated, not its values)

@@ -28,6 +28,11 @@
   <a href="#日本語">日本語</a> · <a href="#中文">中文</a> · <a href="#한국어">한국어</a> · <a href="https://lnkiai.github.io/m3e-canvas/">Open the app</a>
 </p>
 
+> **This repository is a fork of [lnkiai/m3e-canvas](https://github.com/lnkiai/m3e-canvas).**
+> Everything described below is upstream M3E Canvas unless it is marked *(this fork)*. The badges, demo
+> link and sponsor links above point at upstream. The fork adds one thing: **[app profiles](docs/APP_PROFILES.md)**,
+> a small abstraction for rendering and prompting a design under a chosen design system.
+
 ![Sketching a recipes app in M3E Canvas, changing its theme, copying the prompt, an AI coding tool building it, and the app running on Android](docs/story.gif)
 
 <p align="center"><sub>Sketch a recipes app, retheme it, copy the prompt, hand it to an AI coding tool, and run the result on Android. (<a href="docs/story.mp4">mp4</a>)</sub></p>
@@ -61,6 +66,29 @@ Works with any AI coding tool that takes a prompt, such as Claude Code, Codex, G
 </table>
 
 <p align="center"><img src="docs/mobile.png" width="240" alt="Phone version" /><br /><sub>Phone: one screen, buttons only, edited in a bottom sheet.</sub></p>
+
+## App profiles (this fork)
+
+*Not part of upstream M3E Canvas. Full detail in [docs/APP_PROFILES.md](docs/APP_PROFILES.md).*
+
+An **app profile** is a named bundle of theme and palette preferences plus per-language prompt guidance.
+Pick one from the left rail (the icon beside the language menu): the canvas redraws under it, and the
+generated prompt gains the profile's guidance as extra bullets under its closing section.
+
+| Profile | What it does |
+| --- | --- |
+| **Material 3 Expressive** (`base`) | The default. Configures nothing, so the editor behaves exactly as upstream. |
+| **Demo Design System** (`demo`) | A fictional example: its own seed color, square corners, emphasized type and the expressive motion scheme, plus two lines of prompt guidance. |
+| **Now in Android** (`nia`) | Derived from [Now in Android](https://github.com/android/nowinandroid) (Apache-2.0): its default light color scheme, plus prompt guidance for the type weights and background treatment its design system specifies. |
+
+Profiles resolve *over* what you authored rather than replacing it. Switching to a profile never edits your
+theme or palette, and switching back to `base` gives them back untouched. A profile is data: adding one means
+adding a file under `lib/profiles/` and listing it in the registry — no changes to the resolvers, the renderer
+or the prompt builder.
+
+The document carries the selection as an optional `profileId`, so it travels through project files, share links
+and localStorage. A document naming no profile, or naming one this build does not carry, falls back to `base`
+and produces a byte-identical prompt.
 
 ## Keyboard
 

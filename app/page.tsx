@@ -87,6 +87,7 @@ import { PartsPalette } from "@/components/PartsPalette";
 import { PromptPanel } from "@/components/PromptPanel";
 import { GitHubLink, Mode, Toolbar } from "@/components/Toolbar";
 import { LangMenu } from "@/components/Menus";
+import { ProfileMenu } from "@/components/ProfileMenu";
 import { AiActionKey, AiPanel, aiErrorText } from "@/components/AiPanel";
 import { TidyState } from "@/components/ui";
 import { AiSettings, DEFAULT_AI, hasKey, isSecureUrl, loadAiSettings, proposeBehavior, proposeDescription, pushHistory, saveAiSettings } from "@/lib/ai";
@@ -100,6 +101,7 @@ import { ShareDialog } from "@/components/ShareMenu";
 import { ColorPanel } from "@/components/ColorPanel";
 import { MotionPanel, ShapePanel, TypePanel } from "@/components/ThemePanel";
 import { ThemeContext, ensureFontLoaded, ensureLangFontLoaded } from "@/lib/theme";
+import { DEFAULT_PROFILE_ID, paletteFor, profileOf, themeFor } from "@/lib/profiles";
 import { BottomSheet, MobileActionBar, MobileInspector, MobileLang, MobileSettings } from "@/components/Mobile";
 import { ConfirmDialog, IconBtn, Segmented } from "@/components/ui";
 import { Lang, LangContext, SEED_TEXT, getLang, isLang, setGlobalLang, t, translateDefaultFrameName, translateDefaultText } from "@/lib/i18n";
@@ -346,6 +348,10 @@ export default function Page() {
   const [customPalette, setCustomPalette] = useState<Palette | null>(null);
   const [dynamicColor, setDynamicColor] = useState(false);
   const [theme, setTheme] = useState<Theme>(DEFAULT_THEME);
+  /* The profile the canvas is rendered under. It sits beside the authored
+     state rather than in it: nothing about the document changes, and the
+     selection lasts as long as the session. */
+  const [profileId, setProfileId] = useState<string>(DEFAULT_PROFILE_ID);
   const patchTheme = (patch: Partial<Theme>) => setTheme((t) => ({ ...t, ...patch }));
   const [frame, setFrame] = useState<FrameMode>("phone");
   const [lang, setLang] = useState<Lang>("ja");
@@ -441,9 +447,16 @@ export default function Page() {
   const aiNoteTimer = useRef<number | null>(null);
   const aiAbortRef = useRef<AbortController | null>(null);
 
-  const p = paletteOf(paletteKey, customPalette, theme);
+  /* Authored state is everything above; resolved state is these three lines.
+     A profile is read over what the author made and never written back, so
+     `theme`, `paletteKey` and `customPalette` stay exactly as edited and the
+     base profile resolves to them unchanged. Everything that draws reads the
+     resolved pair; the panels that edit the theme keep reading `theme`. */
+  const profile = profileOf(profileId);
+  const renderTheme = themeFor(profile, theme);
+  const p = paletteFor(profile, { paletteKey, customPalette }, renderTheme);
   /* corner helpers read the shape scale outside React; keep it current before anything renders */
-  setGlobalShape(theme.shape);
+  setGlobalShape(renderTheme.shape);
 
   const canvasRef = useRef<HTMLDivElement>(null);
   const measureEls = useRef<Map<string, HTMLElement>>(new Map());
@@ -629,6 +642,8 @@ export default function Page() {
     else if (reset) setPromptEdit(undefined);
     if (isPlatform(doc.platform)) setPlatform(doc.platform);
     else if (reset) setPlatform(null);
+    if (typeof doc.profileId === "string") setProfileId(doc.profileId);
+    else if (reset) setProfileId(DEFAULT_PROFILE_ID);
   };
 
   useEffect(() => {
@@ -689,8 +704,8 @@ export default function Page() {
 
   useEffect(() => {
     /* an empty width map makes every measured part read its width again in the new face */
-    ensureFontLoaded(theme.font, () => setWidths({}));
-  }, [theme.font]);
+    ensureFontLoaded(renderTheme.font, () => setWidths({}));
+  }, [renderTheme.font]);
 
   /* the page background outside the app root follows the scheme, so dark mode has no white edges */
   useEffect(() => {
@@ -764,10 +779,10 @@ export default function Page() {
     try {
       localStorage.setItem(
         DOC_KEY,
-        JSON.stringify({ groups, frames, paletteKey, frame, title, brief, promptEdit, platform: platform ?? undefined, customPalette: customPalette ?? undefined, dynamicColor, theme }),
+        JSON.stringify({ groups, frames, paletteKey, frame, title, brief, promptEdit, platform: platform ?? undefined, profileId, customPalette: customPalette ?? undefined, dynamicColor, theme }),
       );
     } catch {}
-  }, [editAccess, groups, frames, paletteKey, frame, title, brief, promptEdit, platform, customPalette, dynamicColor, theme]);
+  }, [editAccess, groups, frames, paletteKey, frame, title, brief, promptEdit, platform, profileId, customPalette, dynamicColor, theme]);
 
   useEffect(() => {
     if (!loadedRef.current) return;
@@ -2880,8 +2895,8 @@ export default function Page() {
   const dragSize = drag ? sizeOf(drag.item, widths) : { w: 0, h: 0 };
   const selectedSet = useMemo(() => new Set(selectedIds), [selectedIds]);
   const doc: Doc = useMemo(
-    () => ({ groups, frames, paletteKey, frame, title, brief, promptEdit, platform: platform ?? undefined, customPalette: customPalette ?? undefined, dynamicColor, theme }),
-    [groups, frames, paletteKey, frame, title, brief, promptEdit, platform, customPalette, dynamicColor, theme],
+    () => ({ groups, frames, paletteKey, frame, title, brief, promptEdit, platform: platform ?? undefined, profileId, customPalette: customPalette ?? undefined, dynamicColor, theme }),
+    [groups, frames, paletteKey, frame, title, brief, promptEdit, platform, profileId, customPalette, dynamicColor, theme],
   );
   /** the same document, for callbacks that were created on an earlier render */
   const docRef = useRef(doc);
@@ -3228,7 +3243,7 @@ export default function Page() {
 
   return (
     <LangContext.Provider value={lang}>
-    <ThemeContext.Provider value={theme}>
+    <ThemeContext.Provider value={renderTheme}>
       <div
         className={revealing ? "app-root m3e-reveal" : "app-root"}
         /* the preview sits outside this tree and owns the keyboard while it is up */
@@ -3252,7 +3267,7 @@ export default function Page() {
             top: 0,
             visibility: "hidden",
             pointerEvents: "none",
-            fontFamily: fontFamilyOf(theme.font, lang),
+            fontFamily: fontFamilyOf(renderTheme.font, lang),
           }}
         >
           {allItems
@@ -3282,7 +3297,7 @@ export default function Page() {
         </div>
 
         {exportFrame && (
-          <div aria-hidden style={{ position: "fixed", left: -99999, top: 0, pointerEvents: "none", fontFamily: fontFamilyOf(theme.font, lang) }}>
+          <div aria-hidden style={{ position: "fixed", left: -99999, top: 0, pointerEvents: "none", fontFamily: fontFamilyOf(renderTheme.font, lang) }}>
             {renderExport(exportFrame)}
           </div>
         )}
@@ -3300,7 +3315,7 @@ export default function Page() {
                   top: 0,
                   transform: `translate(${(r?.left ?? 0) + view.x}px, ${(r?.top ?? 0) + view.y}px) scale(${view.z})`,
                   transformOrigin: "0 0",
-                  fontFamily: fontFamilyOf(theme.font, lang),
+                  fontFamily: fontFamilyOf(renderTheme.font, lang),
                 }}
               >
       {/* the part in flight */}
@@ -3415,6 +3430,7 @@ export default function Page() {
                 </div>
               ))}
               <div style={{ flex: 1 }} onClick={() => !leftOpen && setLeftOpen(true)} />
+              <ProfileMenu p={p} profileId={profileId} onProfile={setProfileId} side="right" size={44} />
               <LangMenu p={p} onLang={changeLanguage} side="right" size={44} />
               <GitHubLink p={p} size={44} />
             </div>
@@ -3558,7 +3574,7 @@ export default function Page() {
                 transition: cameraEasing ? `transform ${SETTLE_MS}ms cubic-bezier(0.2, 0, 0, 1)` : undefined,
                 willChange: "transform",
                 visibility: viewReady ? "visible" : "hidden",
-                fontFamily: fontFamilyOf(theme.font, lang),
+                fontFamily: fontFamilyOf(renderTheme.font, lang),
               }}
             >
               {frame === "phone" &&

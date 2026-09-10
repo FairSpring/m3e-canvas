@@ -58,7 +58,7 @@ const validFrame = (frame: unknown) =>
 
 /** whether a parsed file has the shape of a document the editor can open */
 export const isProject = (value: unknown): value is Doc =>
-  isRecord(value) && Array.isArray(value.groups) && Array.isArray(value.frames) && value.groups.every(validGroup) && value.frames.every(validFrame) && (value.platform === undefined || isPlatform(value.platform));
+  isRecord(value) && Array.isArray(value.groups) && Array.isArray(value.frames) && value.groups.every(validGroup) && value.frames.every(validFrame) && (value.platform === undefined || isPlatform(value.platform)) && (value.profileId === undefined || typeof value.profileId === "string");
 
 /** the file name a project is saved under: m3e-canvas, followed by the app's name when it has one */
 export const projectFileName = (doc: Doc) => {

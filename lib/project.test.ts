@@ -37,6 +37,17 @@ describe("isProject", () => {
     expect(isProject({ ...doc(), platform })).toBe(false);
   });
 
+  /* Any string is accepted: a file naming a profile this build does not carry
+   * must still open, falling back to the base profile, rather than be refused
+   * as though it were not a project at all. */
+  it.each([undefined, "base", "demo", "", "a-profile-from-a-later-build"])("accepts profileId %j", (profileId) => {
+    expect(isProject({ ...doc(), profileId })).toBe(true);
+  });
+
+  it.each([null, 0, {}, [], true])("rejects profileId %j", (profileId) => {
+    expect(isProject({ ...doc(), profileId })).toBe(false);
+  });
+
   it.each([null, undefined, true, 42, "{}", [], {}, { groups: [] }, { frames: [] },
     { groups: null, frames: [] }, { groups: {}, frames: [] }, { groups: [], frames: {} },
   ].map((value) => [value]))("rejects invalid document shape %# %o", (value) => {
