@@ -1,6 +1,8 @@
 "use client";
 
-import { PROFILES, profileOf } from "@/lib/profiles";
+import { useLang } from "@/lib/i18n";
+import { PROFILES, fidelityNote, fidelityOf, profileOf } from "@/lib/profiles";
+import { useTheme } from "@/lib/theme";
 import { Palette } from "@/lib/tokens";
 import { Icon } from "./M3Node";
 import { Popover } from "./Menus";
@@ -28,6 +30,12 @@ export function ProfileMenu({
   size?: number;
 }) {
   const current = profileOf(profileId);
+  const lang = useLang();
+  /* The mode the canvas is drawing right now, from the resolved theme the page
+     puts in context — so the standing shown is the one actually on screen. */
+  const { dark } = useTheme();
+  const level = fidelityOf(current, dark);
+  const why = level === "exact" ? [] : fidelityNote(current, dark, lang);
   return (
     <Popover p={p} icon="apps" title={`Profile: ${current.label}`} side={side} size={size}>
       {(close) => (
@@ -66,6 +74,28 @@ export function ProfileMenu({
               </button>
             );
           })}
+          {level !== "exact" && (
+            <div
+              role="note"
+              data-fidelity={level}
+              style={{
+                display: "flex",
+                gap: 8,
+                margin: "6px 4px 2px",
+                paddingTop: 8,
+                borderTop: `1px solid ${p.outlineVariant}`,
+                fontSize: 11,
+                lineHeight: 1.5,
+                color: p.onSurfaceVariant,
+                maxWidth: 260,
+              }}
+            >
+              <span style={{ flex: "0 0 auto", color: level === "generated" ? p.error : p.onSurfaceVariant, paddingTop: 1 }}>
+                <Icon name={level === "generated" ? "warning" : "info"} size={14} />
+              </span>
+              <span>{why.length ? why.join(" ") : null}</span>
+            </div>
+          )}
         </div>
       )}
     </Popover>

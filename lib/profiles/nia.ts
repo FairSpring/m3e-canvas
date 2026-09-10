@@ -76,4 +76,25 @@ export const NIA: AppProfile = {
       "Support both light and dark, following the system setting.",
     ],
   },
+  /* Light carries that project's own values for the roles it sets, and derived
+     ones for the six it does not. Dark is generated wholesale: it ships an
+     authored dark scheme, but nothing here can hold a second palette. */
+  fidelity: {
+    light: {
+      level: "mixed",
+      note: {
+        en: [
+          "Six roles — inversePrimary, the four surfaceContainer roles and outlineVariant — are derived from the primary color, because this design system does not specify them; every other role is its own value.",
+        ],
+      },
+    },
+    dark: {
+      level: "generated",
+      note: {
+        en: [
+          "The dark palette is generated from this design system's primary color. Its own authored dark scheme is not represented here, so no dark value should be treated as coming from it.",
+        ],
+      },
+    },
+  },
 };

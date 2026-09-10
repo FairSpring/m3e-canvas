@@ -53,6 +53,7 @@ flowchart TD
 | --- | --- |
 | `lib/profiles/types.ts` | the `AppProfile` contract; declarations only |
 | `lib/profiles/index.ts` | the registry and the four resolvers |
+| `lib/profiles/fidelity.ts` | how faithful a profile's palette is, and the words for it |
 | `lib/profiles/base.ts` · `demo.ts` · `nia.ts` | `BASE` (identity), `DEMO` (fictional), `NIA` (real-world) |
 | `components/ProfileMenu.tsx` | the left-rail picker |
 | `app/page.tsx` | holds `profileId`, resolves once per render |
@@ -69,7 +70,12 @@ export type AppProfile = {
   readonly theme?: Partial<Theme>;   // only the axes this profile fixes
   readonly palette?: ProfilePalette; // { seed, label?, key? } | { palette: Palette }
   readonly context?: ProfileContext; // Partial<Record<Lang, readonly string[]>>
+  readonly fidelity?: ProfileFidelity; // per mode: { level, note? }; unset means exact
 };
+
+export type Fidelity = "exact" | "mixed" | "generated";
+export type ProfileFidelity = { readonly light?: ModeFidelity; readonly dark?: ModeFidelity };
+export type ModeFidelity = { readonly level: Fidelity; readonly note?: ProfileContext };
 ```
 
 Every optional field left unset means "leave the author's value alone". `BASE` sets none of them,
@@ -86,6 +92,9 @@ what makes a new profile a pure data change.
 | `themeFor(profile, authoredTheme)` | Normalises the authored theme, then overrides only the axes the profile sets (explicit `undefined` counts as unset). Always a fresh object; the authored theme is never mutated. |
 | `paletteFor(profile, authoredScheme, resolvedTheme)` | See below. |
 | `contextLines(profile, lang)` | The profile's lines for `lang`, else English, else the first language it defines, else `[]`. |
+| `fidelityOf(profile, dark)` | That mode's standing: `exact`, `mixed` or `generated`. **`exact` when the profile states none**, so an unannotated profile is unchanged. |
+| `fidelityNote(profile, dark, lang)` | The profile's own explanation for that mode, with the same language fallback. |
+| `provenanceLines(profile, theme, lang)` | The caveat the prompt carries: one framing sentence plus the note, for each mode the prompt describes that is not exact. `[]` when every described mode is exact. |
 
 | Profile's `palette` | `paletteFor` behavior |
 | --- | --- |
@@ -154,6 +163,27 @@ that the two sets together account for all of them.
 read from. The repository's `NOTICE` records it alongside the project's other Apache-2.0 material.
 Any further profile derived from someone else's work should do the same.
 
+## Fidelity: saying what the values actually are
+
+A profile's palette is not always its source's own. `fidelity` lets a profile say
+so per mode, in three named states — `exact`, `mixed`, `generated`. There is no score
+and no ordering; the states name what the values are, and the profile's `note` says why.
+
+Two things read it, and neither knows about any particular profile:
+
+- **The picker** shows a small note under the rows when the *active* profile is not exact in
+  the mode currently on screen. The mode comes from the resolved theme in `ThemeContext`, so
+  the same profile can read `mixed` in light and `generated` in dark. `info` marks `mixed`,
+  `warning` marks `generated`.
+- **The prompt** carries `provenanceLines` as bullets ahead of the profile's own guidance, so
+  a coding agent is told which values are approximations before it is told what to build.
+  The framing sentences live in `fidelity.ts`, keyed by state alone.
+
+`NIA` states `light: "mixed"` (six roles derived) and `dark: "generated"` (the whole palette,
+and not that project's authored dark scheme). A profile that says nothing is exact, so `BASE`
+and `DEMO` are byte-identical to what they produced before fidelity existed — checked against
+the previous implementation, not just through the suite.
+
 ## Adding a profile
 
 1. Create `lib/profiles/<name>.ts`, setting only what the profile fixes:
@@ -209,7 +239,8 @@ plus `profileId` cases in `lib/project.test.ts`.
 - **`resolveScheme()` mirrors `paletteOf()`'s tail** and can drift from it. The base-equivalence tests over every preset and theme are what catch that.
 - **The prompt tests are equivalence tests**, so they cannot see a line added identically to both sides. The shape of the prompt's ending is pinned separately to cover that gap.
 - **A profile can only supply a complete `Palette`, so missing roles must be derived.** A real design system rarely specifies all 25 roles this `Palette` needs; the rest are generated from its seed and are not that system's values. `nia.ts` documents which are which.
-- **An authored dark scheme cannot be represented.** `palette` holds one light scheme and `resolveScheme` regenerates dark from its seed, so a design system's own dark colors are lost.
+- **An authored dark scheme cannot be represented.** `palette` holds one light scheme and `resolveScheme` regenerates dark from its seed, so a design system's own dark colors are lost. `fidelity.dark` exists to declare this rather than to fix it.
+- **Fidelity is declared, not computed.** Nothing verifies that a profile's stated level matches what it actually supplies; a profile can under- or over-state it. It is documentation the app surfaces, not a proof.
 - **Typography is only partially representable.** `theme.font` carries a family and nothing else: no sizes, line heights, letter spacing or per-style weights.
 - **Semantic tokens are prompt context, not structured data.** Gradients, tonal elevation, icon tints and anything else outside `Theme` and `Palette` can only be described in `context` lines, so the canvas cannot render them — only the generated prompt mentions them.
 
@@ -217,6 +248,7 @@ plus `profileId` cases in `lib/project.test.ts`.
 
 Ideas only; none of this is implemented.
 
+- Derive fidelity from the profile data instead of trusting the declaration, so a level cannot drift from what the profile really supplies.
 - A partial palette overlay, so a profile can state only the roles its design system actually specifies and let the rest derive explicitly, instead of spreading a generated scheme by hand.
 - A second authored palette for dark, so a design system's own dark colors survive.
 - Reconcile the color panel with an overriding profile — show its scheme read-only, or offer to adopt it as the authored one.

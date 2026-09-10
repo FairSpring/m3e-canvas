@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from "vitest";
 
 import { LANGS, setGlobalLang, type Lang } from "./i18n";
-import { BASE, DEMO, NIA, contextLines, paletteFor, themeFor } from "./profiles";
+import { BASE, DEMO, NIA, contextLines, fidelityNote, paletteFor, provenanceLines, themeFor } from "./profiles";
 import { buildPrompt } from "./prompt";
 import { BACK_TARGET, defaultTabs, makeItem, type Doc, type Item } from "./tokens";
 
@@ -109,6 +109,34 @@ describe("profile context in the prompt", () => {
     const scheme = { paletteKey: doc.paletteKey };
     expect(prompt).toContain(paletteFor(NIA, scheme, { ...th, dark: false }).surface);
     expect(prompt).toContain(paletteFor(NIA, scheme, { ...th, dark: true }).surface);
+  });
+
+  /* A profile whose palette is not its source's own must say so in the brief,
+     so a coding agent does not implement derived values as a specification. */
+  it.each(langs)("carries a profile's provenance into the brief, in %s", (lang) => {
+    const doc = fixture(NIA.id);
+    const prompt = build(lang, NIA.id);
+    for (const line of provenanceLines(NIA, themeFor(NIA, doc.theme), lang)) expect(prompt).toContain(`- ${line}`);
+  });
+
+  it("states the provenance of both modes, since that profile follows the system", () => {
+    const prompt = build("en", NIA.id);
+    for (const dark of [false, true]) for (const line of fidelityNote(NIA, dark, "en")) expect(prompt).toContain(`- ${line}`);
+  });
+
+  it("puts the provenance ahead of the profile's own guidance", () => {
+    const prompt = build("en", NIA.id);
+    const firstCaveat = prompt.indexOf(fidelityNote(NIA, false, "en")[0]);
+    const firstGuidance = prompt.indexOf(contextLines(NIA, "en")[0]);
+    expect(firstCaveat).toBeGreaterThan(-1);
+    expect(firstCaveat).toBeLessThan(firstGuidance);
+  });
+
+  it.each(langs)("adds no provenance for a profile that states none, in %s", (lang) => {
+    /* DEMO derives its whole palette from a seed but claims nothing, so the
+       brief must be exactly what it was before fidelity existed */
+    expect(provenanceLines(DEMO, themeFor(DEMO, fixture(DEMO.id).theme), lang)).toEqual([]);
+    expect(build(lang, DEMO.id).endsWith(`\n${bullets(contextLines(DEMO, lang))}`)).toBe(true);
   });
 
   it.each(langs)("introduces no section of its own, in %s", (lang) => {

@@ -1,12 +1,14 @@
 import { schemeFromSeed } from "../color";
-import { LANGS, type Lang } from "../i18n";
+import { type Lang } from "../i18n";
+import { linesFor } from "./fidelity";
 import { normalizeTheme, paletteOf, type Palette, type Theme } from "../tokens";
 import { BASE } from "./base";
 import { DEMO } from "./demo";
 import { NIA } from "./nia";
 import type { AppProfile, ProfilePalette } from "./types";
 
-export type { AppProfile, ProfileContext, ProfilePalette } from "./types";
+export type { AppProfile, Fidelity, ModeFidelity, ProfileContext, ProfileFidelity, ProfilePalette } from "./types";
+export { fidelityNote, fidelityOf, provenanceLines } from "./fidelity";
 export { BASE } from "./base";
 export { DEMO } from "./demo";
 export { NIA } from "./nia";
@@ -86,11 +88,5 @@ export function paletteFor(profile: AppProfile, authored: AuthoredScheme, theme:
  *  else the first language it does define, else none. A profile is not required
  *  to be written in every language the editor speaks. */
 export function contextLines(profile: AppProfile, lang: Lang): readonly string[] {
-  const context = profile.context;
-  if (!context) return [];
-  for (const candidate of [lang, "en" as Lang, ...LANGS.map((l) => l.key)]) {
-    const lines = context[candidate];
-    if (lines && lines.length > 0) return lines;
-  }
-  return [];
+  return linesFor(profile.context, lang);
 }

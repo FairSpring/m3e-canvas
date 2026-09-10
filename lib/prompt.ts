@@ -1,5 +1,5 @@
 import { KIND_TEXT, Lang, SWIPE_TEXT, TRANSITION_TEXT, getLang } from "./i18n";
-import { contextLines, paletteFor, profileOf, themeFor } from "./profiles";
+import { contextLines, paletteFor, profileOf, provenanceLines, themeFor } from "./profiles";
 import { constrainModalRails } from "./rail";
 import {
   CONTENT_W,
@@ -1526,6 +1526,7 @@ export function buildPrompt(doc: Doc, widths: Record<string, number>, onlyFrameI
   /* Whatever the chosen profile adds, as further guidance rather than a section
    * of its own. A profile with nothing to say adds no line at all, so the base
    * profile leaves the prompt exactly as it was. */
+  for (const s of provenanceLines(profile, th, lang)) lines.push(`- ${s}`);
   for (const s of contextLines(profile, lang)) lines.push(`- ${s}`);
   return lines.join("\n");
 }
